@@ -1,4 +1,4 @@
-name: CD
+name: CD — Build & Deploy to EC2
 
 on:
   push:
@@ -6,20 +6,23 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner }}/pokemon-bingo
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/pokemon-bingo-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/pokemon-bingo-frontend
 
 jobs:
-  deploy:
-    name: Build & Deploy
+  build-and-deploy:
+    name: Build, Push & Deploy
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: write      # needed to push to GHCR
 
     steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
+      # ── 2. Login to GitHub Container Registry ─────────────────────────────
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -29,13 +32,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # ── 3. Build & push images (tagged :latest and :<sha>) ─────────────────
       - name: Build & push backend
         uses: docker/build-push-action@v5
         with:
           context: .
           file: docker/Dockerfile.backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:latest
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build & push frontend
         uses: docker/build-push-action@v5
@@ -43,16 +51,59 @@ jobs:
           context: .
           file: docker/Dockerfile.frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@v1
+      # ── 4. Generate docker-compose with exact image SHA tags ───────────────
+      - name: Prepare docker-compose for EC2
+        run: |
+          export BACKEND_IMAGE="${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
+          export FRONTEND_IMAGE="${{ env.FRONTEND_IMAGE }}:${{ github.sha }}"
+          envsubst < docker-compose.prod.yml > docker-compose.deploy.yml
+          echo "--- Generated compose file ---"
+          cat docker-compose.deploy.yml
+
+      # ── 5. Copy compose file to EC2 ────────────────────────────────────────
+      - name: Copy compose file to EC2
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          source: docker-compose.deploy.yml
+          target: /opt/pokemon-bingo/
+          strip_components: 0
+
+      # ── 6. Deploy on EC2 ──────────────────────────────────────────────────
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: GHCR_USER,GHCR_TOKEN
           script: |
+            set -e
+
+            # Authenticate against GHCR to pull the new images
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
             cd /opt/pokemon-bingo
+
+            # Replace compose file with the freshly built version
+            mv docker-compose.deploy.yml docker-compose.yml
+
+            # Pull new images then restart containers
             docker compose pull
             docker compose up -d --remove-orphans
+
+            # Clean up old dangling images to save disk space
             docker image prune -f
+
+            echo "✓ Deploy complete — $(date)"

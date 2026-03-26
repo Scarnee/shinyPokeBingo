@@ -1,0 +1,34 @@
+# Production compose — used by the CD pipeline on EC2.
+# Image names are injected by the workflow via envsubst before this file is copied to the server.
+version: '3.9'
+
+services:
+  backend:
+    image: ${BACKEND_IMAGE}
+    environment:
+      PORT: 3000
+      CACHE_DIR: /app/cache
+    volumes:
+      - pokeapi-cache:/app/cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/bingo/games"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pokeapi-cache:
+
+networks:
+  default:
+    name: pokemon-bingo-network
