@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    environment:
+      PORT: 3000
+      FRONTEND_URL: http://localhost
+      CACHE_DIR: /app/cache
+      # Uncomment to point at a self-hosted PokéAPI:
+      # POKEAPI_BASE_URL: http://pokeapi-local/api/v2
+    volumes:
+      - pokeapi-cache:/app/cache
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/bingo/games"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  # Named volume — persists across container restarts and redeployments.
+  # On AWS: replace with an EFS mount (see README) for multi-instance setups.
+  pokeapi-cache:
+
+networks:
+  default:
+    name: pokemon-bingo-network

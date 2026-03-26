@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-900 text-white min-h-screen;
+  }
+}
+
+/* ── Print / PDF export ──────────────────────────────────────────────────── */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide the left panel and any no-print elements */
+  aside,
+  .no-print {
+    display: none !important;
+  }
+
+  /* The right panel takes full width */
+  main {
+    background: white !important;
+    padding: 8px !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Grid cells */
+  [data-bingo-cell] {
+    border-color: #374151 !important;
+    background: white !important;
+    color: black !important;
+    break-inside: avoid;
+  }
+
+  [data-bingo-cell].is-marked {
+    background: #fef08a !important;
+  }
+
+  /* Hide the hover refresh button */
+  [data-regen-btn] {
+    display: none !important;
+  }
+}

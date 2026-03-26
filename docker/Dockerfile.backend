@@ -1,0 +1,42 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy workspace files
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/backend/package.json ./apps/backend/
+
+# Install dependencies
+RUN pnpm install --filter backend
+
+# Copy source
+COPY apps/backend ./apps/backend
+
+# Build
+RUN pnpm --filter backend build
+
+# ---- Production stage ----
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+RUN npm install -g pnpm
+
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/backend/package.json ./apps/backend/
+
+RUN pnpm install --filter backend --prod
+
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+
+WORKDIR /app/apps/backend
+
+# Create default cache directory (overridden by volume mount in production)
+RUN mkdir -p /app/cache
+
+EXPOSE 3000
+
+CMD ["node", "dist/main"]
