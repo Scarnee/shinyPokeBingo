@@ -89,6 +89,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            sudo rm -rf /opt/pokemon-bingo/monitoring
             sudo mkdir -p /opt/pokemon-bingo/monitoring/grafana/provisioning/datasources
             sudo chown -R $USER:$USER /opt/pokemon-bingo/monitoring
 
