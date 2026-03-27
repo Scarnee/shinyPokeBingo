@@ -6,8 +6,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/pokemon-bingo-backend
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/pokemon-bingo-frontend
 
 jobs:
   build-and-deploy:
@@ -20,6 +18,13 @@ jobs:
     steps:
       # ── 1. Checkout ────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
+
+      # ── 1b. Compute lowercase image names (Docker requires lowercase) ──────
+      - name: Set lowercase image names
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "BACKEND_IMAGE=ghcr.io/${OWNER}/pokemon-bingo-backend" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE=ghcr.io/${OWNER}/pokemon-bingo-frontend" >> $GITHUB_ENV
 
       # ── 2. Login to GitHub Container Registry ─────────────────────────────
       - name: Login to GHCR
