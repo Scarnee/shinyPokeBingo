@@ -71,7 +71,7 @@ jobs:
           echo "--- Generated compose file ---"
           cat docker-compose.deploy.yml
 
-      # ── 5. Copy compose file to EC2 ────────────────────────────────────────
+      # ── 5. Copy files to EC2 ───────────────────────────────────────────────
       - name: Copy compose file to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -79,6 +79,16 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: docker-compose.deploy.yml
+          target: /opt/pokemon-bingo/
+          strip_components: 0
+
+      - name: Copy monitoring config to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: monitoring/
           target: /opt/pokemon-bingo/
           strip_components: 0
 
