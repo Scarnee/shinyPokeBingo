@@ -82,6 +82,16 @@ jobs:
           target: /opt/pokemon-bingo/
           strip_components: 0
 
+      - name: Ensure monitoring directory is writable on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            sudo mkdir -p /opt/pokemon-bingo/monitoring/grafana/provisioning/datasources
+            sudo chown -R $USER:$USER /opt/pokemon-bingo/monitoring
+
       - name: Copy monitoring config to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -91,6 +101,7 @@ jobs:
           source: monitoring/
           target: /opt/pokemon-bingo/
           strip_components: 0
+          overwrite: true
 
       # ── 6. Deploy on EC2 ──────────────────────────────────────────────────
       - name: Deploy on EC2
