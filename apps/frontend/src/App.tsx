@@ -194,6 +194,7 @@ export default function App() {
                 <div className="flex items-center gap-2 md:gap-3">
                   <button onClick={() => window.print()} className="text-xs text-gray-400 hover:text-blue-400 transition-colors">↓ PDF</button>
                   <button onClick={() => handleGenerate()} className="text-xs text-gray-400 hover:text-yellow-400 transition-colors">↺ Regenerate</button>
+                  <button onClick={() => { setGrid(null); setExtras([]); }} className="text-xs text-gray-400 hover:text-red-400 transition-colors">✕ Clear</button>
                 </div>
               </div>
               <BingoGrid grid={grid} extras={extras} shiny={shiny} showGame={showGame} />
