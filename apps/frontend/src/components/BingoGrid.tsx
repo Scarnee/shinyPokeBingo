@@ -1,73 +1,55 @@
-import React, { useState } from 'react';
+import { forwardRef } from 'react';
 import { Pokemon } from '../api/bingo';
+import { CellStatus, CELL_STATUS_CYCLE } from '../types';
 import { BingoCell } from './BingoCell';
 
 interface BingoGridProps {
   grid: Pokemon[][];
   extras: Pokemon[];
+  cellStatuses: Record<string, CellStatus>;
+  cellNotes: Record<string, string>;
   shiny: boolean;
   showGame: boolean;
+  onStatusChange: (row: number, col: number, status: CellStatus) => void;
+  onRegenerate: (row: number, col: number) => void;
+  onNoteChange: (row: number, col: number, note: string) => void;
 }
 
-export function BingoGrid({ grid: initialGrid, extras: initialExtras, shiny, showGame }: BingoGridProps) {
-  const [grid, setGrid] = useState<Pokemon[][]>(initialGrid);
-  const [extras, setExtras] = useState<Pokemon[]>(initialExtras);
-  const [marked, setMarked] = useState<Set<string>>(new Set());
+export const BingoGrid = forwardRef<HTMLDivElement, BingoGridProps>(
+  ({ grid, extras, cellStatuses, cellNotes, shiny, showGame, onStatusChange, onRegenerate, onNoteChange }, ref) => {
+    const size = grid.length;
 
-  const toggleMark = (row: number, col: number) => {
-    const key = `${row}-${col}`;
-    setMarked((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+    const handleClick = (row: number, col: number) => {
+      const current = cellStatuses[`${row}-${col}`] ?? 'idle';
+      const next = CELL_STATUS_CYCLE[(CELL_STATUS_CYCLE.indexOf(current) + 1) % CELL_STATUS_CYCLE.length];
+      onStatusChange(row, col, next);
+    };
 
-  const regenerateCell = (row: number, col: number) => {
-    if (extras.length === 0) return;
-    const idx = Math.floor(Math.random() * extras.length);
-    const next = extras[idx];
-    const old = grid[row][col];
+    return (
+      <div
+        ref={ref}
+        className="grid gap-2 w-full max-w-3xl mx-auto"
+        style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+      >
+        {grid.map((row, ri) =>
+          row.map((pokemon, ci) => (
+            <BingoCell
+              key={`${ri}-${ci}`}
+              pokemon={pokemon}
+              status={cellStatuses[`${ri}-${ci}`] ?? 'idle'}
+              note={cellNotes[`${ri}-${ci}`] ?? ''}
+              shiny={shiny}
+              showGame={showGame}
+              canRegenerate={extras.length > 0}
+              onClick={() => handleClick(ri, ci)}
+              onRegenerate={() => onRegenerate(ri, ci)}
+              onNoteChange={(note) => onNoteChange(ri, ci, note)}
+            />
+          )),
+        )}
+      </div>
+    );
+  },
+);
 
-    setExtras((prev) => {
-      const a = [...prev];
-      a[idx] = old;
-      return a;
-    });
-    setGrid((prev) => {
-      const g = prev.map((r) => [...r]);
-      g[row][col] = next;
-      return g;
-    });
-    setMarked((prev) => {
-      const s = new Set(prev);
-      s.delete(`${row}-${col}`);
-      return s;
-    });
-  };
-
-  const size = grid.length;
-
-  return (
-    <div
-      className="grid gap-2 w-full max-w-3xl mx-auto"
-      style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
-    >
-      {grid.map((row, ri) =>
-        row.map((pokemon, ci) => (
-          <BingoCell
-            key={`${ri}-${ci}`}
-            pokemon={pokemon}
-            marked={marked.has(`${ri}-${ci}`)}
-            shiny={shiny}
-            showGame={showGame}
-            canRegenerate={extras.length > 0}
-            onClick={() => toggleMark(ri, ci)}
-            onRegenerate={() => regenerateCell(ri, ci)}
-          />
-        )),
-      )}
-    </div>
-  );
-}
+BingoGrid.displayName = 'BingoGrid';
